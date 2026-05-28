@@ -1468,7 +1468,6 @@ function exportBackup() {
     JSON.stringify(payload, null, 2),
     "application/json"
   );
-}
 
 function exportCsv() {
   const rows = [["date", "type", "name", "amount", "signed_amount", "created_at"]];
