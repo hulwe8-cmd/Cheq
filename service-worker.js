@@ -1,4 +1,4 @@
-const CACHE_NAME = "cheq-cache-v23";
+const CACHE_NAME = "cheq-cache-v25";
 
 const FILES_TO_CACHE = [
   "/Cheq/",
