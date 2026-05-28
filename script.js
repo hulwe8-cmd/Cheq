@@ -2,6 +2,8 @@ const STORAGE_KEY = "cheq-transactions-v3";
 const LEGACY_STORAGE_KEY = "cheq-transactions-v2";
 const PROFILE_KEY = "cheq-profile-v1";
 const ADJUSTMENTS_KEY = "cheq-net-worth-adjustments-v1";
+const BILLS_KEY = "cheq-bills-v1";
+
 const START_YEAR = 2026;
 const START_MONTH_INDEX = 4;
 const START_DATE = new Date(START_YEAR, START_MONTH_INDEX, 1);
@@ -76,6 +78,8 @@ const safeToSpendNote = document.getElementById("safeToSpendNote");
 const hudMonthlyNet = document.getElementById("hudMonthlyNet");
 const hudUpcomingOutflow = document.getElementById("hudUpcomingOutflow");
 const hudCreditUsage = document.getElementById("hudCreditUsage");
+const upcomingBillsTotal = document.getElementById("upcomingBillsTotal");
+const upcomingBillsNext = document.getElementById("upcomingBillsNext");
 
 const prevMonthBtn = document.getElementById("prevMonthBtn");
 const nextMonthBtn = document.getElementById("nextMonthBtn");
@@ -139,10 +143,22 @@ const dayAmexTotal = document.getElementById("dayAmexTotal");
 const dayIncomeTotal = document.getElementById("dayIncomeTotal");
 
 const onboardingOverlay = document.getElementById("onboardingOverlay");
+const netWorthSetupStep = document.getElementById("netWorthSetupStep");
+const billSetupStep = document.getElementById("billSetupStep");
 const netWorthForm = document.getElementById("netWorthForm");
 const startingNetWorth = document.getElementById("startingNetWorth");
 const netWorthError = document.getElementById("netWorthError");
 const startAtZeroBtn = document.getElementById("startAtZeroBtn");
+
+const billSetupForm = document.getElementById("billSetupForm");
+const setupBillName = document.getElementById("setupBillName");
+const setupBillAmount = document.getElementById("setupBillAmount");
+const setupBillUnknown = document.getElementById("setupBillUnknown");
+const setupBillDueDay = document.getElementById("setupBillDueDay");
+const setupBillList = document.getElementById("setupBillList");
+const billSetupError = document.getElementById("billSetupError");
+const finishSetupButton = document.getElementById("finishSetupButton");
+const skipBillsButton = document.getElementById("skipBillsButton");
 
 let visibleDate = getInitialVisibleDate();
 let selectedDateKey = toDateKey(visibleDate);
@@ -151,6 +167,7 @@ let activeFilter = "all";
 let transactions = loadTransactions();
 let profile = loadProfile();
 let adjustments = loadAdjustments();
+let bills = loadBills();
 
 function getInitialVisibleDate() {
   const now = new Date();
@@ -260,6 +277,41 @@ function loadAdjustments() {
   }
 }
 
+function loadBills() {
+  try {
+    const saved = localStorage.getItem(BILLS_KEY);
+    if (!saved) {
+      return [];
+    }
+
+    const parsed = JSON.parse(saved);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .filter(item => item && typeof item === "object")
+      .map(item => {
+        const amountKnown = Boolean(item.amountKnown);
+        const amount = amountKnown ? Number(item.amount) : null;
+        const dueDay = Math.min(31, Math.max(1, Number(item.dueDay) || 1));
+
+        return {
+          id: item.id || createId(),
+          name: String(item.name || "Bill"),
+          amount: amountKnown && Number.isFinite(amount) && amount > 0 ? amount : null,
+          amountKnown: amountKnown && Number.isFinite(amount) && amount > 0,
+          dueDay,
+          reminderEnabled: Boolean(item.reminderEnabled),
+          createdAt: item.createdAt || new Date().toISOString()
+        };
+      });
+  } catch (error) {
+    console.error("Could not load Cheq bills", error);
+    return [];
+  }
+}
+
 function saveTransactions() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions));
 }
@@ -270,6 +322,10 @@ function saveProfile() {
 
 function saveAdjustments() {
   localStorage.setItem(ADJUSTMENTS_KEY, JSON.stringify(adjustments));
+}
+
+function saveBills() {
+  localStorage.setItem(BILLS_KEY, JSON.stringify(bills));
 }
 
 function createId() {
@@ -357,6 +413,13 @@ function shortDate(dateKey) {
   }).format(fromDateKey(dateKey));
 }
 
+function formatShortDateFromDate(date) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric"
+  }).format(date);
+}
+
 function compactMoney(amount) {
   const abs = Math.abs(amount);
 
@@ -367,8 +430,23 @@ function compactMoney(amount) {
   return `$${Math.round(abs)}`;
 }
 
+function formatBillAmount(bill) {
+  return bill.amountKnown ? formatMoney(bill.amount) : "N/A";
+}
+
 function getTransactionsForDate(dateKey) {
   return transactions[dateKey] || [];
+}
+
+function getBillsForDate(dateKey) {
+  const date = fromDateKey(dateKey);
+  const { lastDay } = getMonthMeta(date);
+  const effectiveDay = date.getDate();
+
+  return bills.filter(bill => {
+    const billDueDay = Math.min(Number(bill.dueDay) || 1, lastDay.getDate());
+    return billDueDay === effectiveDay;
+  });
 }
 
 function blankTotals() {
@@ -436,15 +514,51 @@ function getMonthTotals() {
   return getVisibleMonthTransactions().reduce(addToTotals, blankTotals());
 }
 
+function getUpcomingBillsForVisibleMonth() {
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const { year, month, daysInMonth } = getMonthMeta(visibleDate);
+
+  return bills
+    .map(bill => {
+      const dueDay = Math.min(Number(bill.dueDay) || 1, daysInMonth);
+      const dueDate = new Date(year, month, dueDay);
+
+      return {
+        ...bill,
+        dueDate,
+        dueDateKey: toDateKey(dueDate)
+      };
+    })
+    .filter(bill => {
+      const visibleMonthIsCurrentMonth =
+        year === today.getFullYear() &&
+        month === today.getMonth();
+
+      if (visibleMonthIsCurrentMonth) {
+        return bill.dueDate >= todayStart;
+      }
+
+      return true;
+    })
+    .sort((a, b) => a.dueDate - b.dueDate);
+}
+
+function getUpcomingKnownBillsTotalForVisibleMonth() {
+  return getUpcomingBillsForVisibleMonth().reduce((total, bill) => {
+    return total + (bill.amountKnown ? Number(bill.amount) || 0 : 0);
+  }, 0);
+}
+
 function getUpcomingOutflowForVisibleMonth() {
   const today = new Date();
-  const todayKey = toDateKey(today);
   const { year, month, daysInMonth } = getMonthMeta(visibleDate);
   let total = 0;
 
   for (let day = 1; day <= daysInMonth; day += 1) {
-    const dateKey = toDateKey(new Date(year, month, day));
-    const isPastVisibleMonth = new Date(year, month, day) < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const date = new Date(year, month, day);
+    const dateKey = toDateKey(date);
+    const isPastVisibleMonth = date < new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
     if (isPastVisibleMonth) {
       continue;
@@ -458,11 +572,14 @@ function getUpcomingOutflowForVisibleMonth() {
     });
   }
 
-  return total;
+  return total + getUpcomingKnownBillsTotalForVisibleMonth();
 }
 
 function getSafeToSpendValue() {
   const totals = getMonthTotals();
+
+  // Important: planned bills are not subtracted here.
+  // Safe to Spend stays based on actual entered transactions only.
   return totals.income - totals.outflow;
 }
 
@@ -509,10 +626,12 @@ function setSelectedDate(dateKey) {
 function renderApp() {
   renderNetWorth();
   renderFinancialHud();
+  renderUpcomingBillsHud();
   renderMonthStatus();
   renderCalendar();
   renderTransactionsView();
   renderSummaryView();
+  renderSetupBills();
 }
 
 function renderNetWorth() {
@@ -544,6 +663,26 @@ function renderFinancialHud() {
   hudMonthlyNet.parentElement.classList.toggle("negative", totals.net < 0);
 }
 
+function renderUpcomingBillsHud() {
+  if (!upcomingBillsTotal || !upcomingBillsNext) {
+    return;
+  }
+
+  const upcomingBills = getUpcomingBillsForVisibleMonth();
+  const knownTotal = upcomingBills.reduce((total, bill) => {
+    return total + (bill.amountKnown ? Number(bill.amount) || 0 : 0);
+  }, 0);
+  const hasUnknown = upcomingBills.some(bill => !bill.amountKnown);
+  const nextBill = upcomingBills[0];
+
+  upcomingBillsTotal.textContent = hasUnknown
+    ? `${formatMoney(knownTotal)} + N/A`
+    : formatMoney(knownTotal);
+
+  upcomingBillsNext.textContent = nextBill
+    ? `Next: ${nextBill.name} · ${formatShortDateFromDate(nextBill.dueDate)} · ${formatBillAmount(nextBill)}`
+    : "No upcoming bills";
+}
 
 function renderMonthStatus() {
   const totals = getMonthTotals();
@@ -554,7 +693,9 @@ function renderMonthStatus() {
   if (totals.count === 0) {
     monthStatusBanner.classList.add("neutral");
     monthStatusText.textContent = `${formatShortMonth(visibleDate)} has no activity yet`;
-    monthStatusSubtext.textContent = "Add income and outflow to build the month view.";
+    monthStatusSubtext.textContent = bills.length
+      ? "Bills are mapped on the calendar. Add income and actual outflow to build the month view."
+      : "Add income and outflow to build the month view.";
     return;
   }
 
@@ -611,6 +752,7 @@ function renderCalendar() {
 
     const dateKey = toDateKey(cellDate);
     const totals = getDayTotals(dateKey);
+    const dayBills = getBillsForDate(dateKey);
     const button = document.createElement("button");
     button.type = "button";
     button.className = "day-cell";
@@ -635,7 +777,7 @@ function renderCalendar() {
 
     button.innerHTML = `
       <span class="day-number">${labelDay}</span>
-      ${renderDayEntries(totals)}
+      ${renderDayEntries(totals, dayBills)}
     `;
 
     button.addEventListener("click", () => openDayDrawer(dateKey));
@@ -646,7 +788,7 @@ function renderCalendar() {
   renderSelectedDayStrip();
 }
 
-function renderDayEntries(totals) {
+function renderDayEntries(totals, dayBills = []) {
   const entries = [];
 
   if (totals.expense > 0) {
@@ -665,6 +807,10 @@ function renderDayEntries(totals) {
     entries.push(`<span class="day-entry type-income">+${compactMoney(totals.income)}</span>`);
   }
 
+  dayBills.forEach(bill => {
+    entries.push(`<span class="day-entry type-bill">${escapeHtml(bill.name)} ${escapeHtml(formatBillAmount(bill))}</span>`);
+  });
+
   if (!entries.length) {
     return "";
   }
@@ -682,6 +828,8 @@ function renderDayEntries(totals) {
 
 function renderSelectedDayStrip() {
   const totals = getDayTotals(selectedDateKey);
+  const selectedBills = getBillsForDate(selectedDateKey);
+  const totalItems = totals.count + selectedBills.length;
 
   selectedStripDate.textContent = shortDate(selectedDateKey);
   selectedStripNet.textContent = formatSignedMoney(totals.net);
@@ -690,7 +838,7 @@ function renderSelectedDayStrip() {
   selectedStripExpense.className = totals.outflow > 0 ? "negative-text" : "";
   selectedStripIncome.textContent = formatMoney(totals.income, { sign: totals.income > 0 ? "+" : "" });
   selectedStripIncome.className = totals.income > 0 ? "positive-text" : "";
-  selectedStripItems.textContent = `${totals.count} ${totals.count === 1 ? "item" : "items"}`;
+  selectedStripItems.textContent = `${totalItems} ${totalItems === 1 ? "item" : "items"}`;
 }
 
 function renderMonthSummary() {
@@ -726,12 +874,27 @@ function renderDayDrawer() {
 
 function renderDayTransactionList() {
   const items = getTransactionsForDate(selectedDateKey);
+  const selectedBills = getBillsForDate(selectedDateKey);
   dayTransactionList.innerHTML = "";
 
-  if (!items.length) {
+  if (!items.length && !selectedBills.length) {
     dayTransactionList.innerHTML = `<li class="empty-state"><strong>No activity here.</strong>Add income, expenses, Discover, or Amex usage for this selected day.</li>`;
     return;
   }
+
+  selectedBills.forEach(bill => {
+    const li = document.createElement("li");
+    li.className = "transaction-item type-bill";
+    li.innerHTML = `
+      <span class="type-badge" aria-hidden="true">B</span>
+      <span class="transaction-copy">
+        <strong>${escapeHtml(bill.name)}</strong>
+        <small>Planned monthly bill - due day ${bill.dueDay}</small>
+      </span>
+      <span class="transaction-amount type-bill">${escapeHtml(formatBillAmount(bill))}</span>
+    `;
+    dayTransactionList.appendChild(li);
+  });
 
   items.forEach(item => {
     dayTransactionList.appendChild(createTransactionListItem(item, selectedDateKey, true, false));
@@ -883,6 +1046,42 @@ function renderAdjustmentList() {
     });
 }
 
+function renderSetupBills() {
+  if (!setupBillList) {
+    return;
+  }
+
+  setupBillList.innerHTML = "";
+
+  if (!bills.length) {
+    setupBillList.innerHTML = `<li class="empty-state"><strong>No bills added yet.</strong>Add bills now or skip this step.</li>`;
+    return;
+  }
+
+  bills.forEach(bill => {
+    const li = document.createElement("li");
+    li.className = "bill-list-item";
+
+    li.innerHTML = `
+      <div>
+        <strong>${escapeHtml(bill.name)}</strong>
+        <small>Due every month on day ${bill.dueDay}</small>
+      </div>
+      <span>${escapeHtml(formatBillAmount(bill))}</span>
+      <button class="delete-button" type="button" aria-label="Remove ${escapeHtml(bill.name)}">x</button>
+    `;
+
+    li.querySelector("button").addEventListener("click", () => {
+      bills = bills.filter(item => item.id !== bill.id);
+      saveBills();
+      renderSetupBills();
+      renderApp();
+    });
+
+    setupBillList.appendChild(li);
+  });
+}
+
 function switchView(viewName) {
   activeView = viewName;
 
@@ -976,9 +1175,29 @@ function deleteAdjustment(adjustmentId) {
 function showOnboarding() {
   startingNetWorth.value = profile ? String(profile.startingNetWorth) : "";
   netWorthError.textContent = "";
+  if (billSetupError) {
+    billSetupError.textContent = "";
+  }
+
+  if (netWorthSetupStep && billSetupStep) {
+    netWorthSetupStep.classList.remove("hidden");
+    billSetupStep.classList.add("hidden");
+  }
+
+  renderSetupBills();
   onboardingOverlay.classList.add("open");
   onboardingOverlay.setAttribute("aria-hidden", "false");
   window.setTimeout(() => startingNetWorth.focus(), 60);
+}
+
+function showBillSetupStep() {
+  if (netWorthSetupStep && billSetupStep) {
+    netWorthSetupStep.classList.add("hidden");
+    billSetupStep.classList.remove("hidden");
+  }
+
+  renderSetupBills();
+  window.setTimeout(() => setupBillName && setupBillName.focus(), 60);
 }
 
 function hideOnboarding() {
@@ -986,14 +1205,65 @@ function hideOnboarding() {
   onboardingOverlay.setAttribute("aria-hidden", "true");
 }
 
+function completeOnboarding() {
+  hideOnboarding();
+  renderApp();
+}
+
 function saveStartingNetWorth(value) {
   profile = {
     startingNetWorth: value,
     createdAt: profile && profile.createdAt ? profile.createdAt : new Date().toISOString()
   };
+
   saveProfile();
-  hideOnboarding();
   renderApp();
+  showBillSetupStep();
+}
+
+function addBillFromSetup() {
+  const name = setupBillName.value.trim();
+  const amountUnknown = setupBillUnknown.checked;
+  const amount = Number(setupBillAmount.value);
+  const dueDay = Number(setupBillDueDay.value);
+
+  billSetupError.textContent = "";
+
+  if (!name) {
+    billSetupError.textContent = "Enter a bill name.";
+    return;
+  }
+
+  if (!amountUnknown && (!Number.isFinite(amount) || amount <= 0)) {
+    billSetupError.textContent = "Enter an amount or mark it as N/A.";
+    return;
+  }
+
+  if (!Number.isFinite(dueDay) || dueDay < 1 || dueDay > 31) {
+    billSetupError.textContent = "Enter a due day from 1 to 31.";
+    return;
+  }
+
+  bills.push({
+    id: createId(),
+    name,
+    amount: amountUnknown ? null : amount,
+    amountKnown: !amountUnknown,
+    dueDay,
+    reminderEnabled: false,
+    createdAt: new Date().toISOString()
+  });
+
+  saveBills();
+  renderSetupBills();
+  renderApp();
+
+  setupBillName.value = "";
+  setupBillAmount.value = "";
+  setupBillUnknown.checked = false;
+  setupBillAmount.disabled = false;
+  setupBillDueDay.value = "";
+  setupBillName.focus();
 }
 
 function downloadTextFile(filename, content, mimeType) {
@@ -1011,12 +1281,13 @@ function downloadTextFile(filename, content, mimeType) {
 function exportBackup() {
   const payload = {
     app: "Cheq",
-    version: 4,
+    version: 5,
     exportedAt: new Date().toISOString(),
     startDate: START_DATE_KEY,
     profile,
     transactions,
-    adjustments
+    adjustments,
+    bills
   };
 
   downloadTextFile(`cheq-backup-${toDateKey(new Date())}.json`, JSON.stringify(payload, null, 2), "application/json");
@@ -1069,6 +1340,23 @@ function importBackupFile(file) {
         }))
         .filter(item => item.amount > 0) : [];
 
+      bills = Array.isArray(parsed.bills) ? parsed.bills
+        .map(item => {
+          const amountKnown = Boolean(item.amountKnown);
+          const amount = amountKnown ? Number(item.amount) : null;
+          const dueDay = Math.min(31, Math.max(1, Number(item.dueDay) || 1));
+
+          return {
+            id: item.id || createId(),
+            name: String(item.name || "Bill"),
+            amount: amountKnown && Number.isFinite(amount) && amount > 0 ? amount : null,
+            amountKnown: amountKnown && Number.isFinite(amount) && amount > 0,
+            dueDay,
+            reminderEnabled: Boolean(item.reminderEnabled),
+            createdAt: item.createdAt || new Date().toISOString()
+          };
+        }) : [];
+
       const startingValue = Number(parsed.profile && parsed.profile.startingNetWorth);
       profile = Number.isFinite(startingValue) ? {
         startingNetWorth: startingValue,
@@ -1077,6 +1365,7 @@ function importBackupFile(file) {
 
       saveTransactions();
       saveAdjustments();
+      saveBills();
       saveProfile();
       hideOnboarding();
       renderApp();
@@ -1165,6 +1454,31 @@ netWorthForm.addEventListener("submit", event => {
 startAtZeroBtn.addEventListener("click", () => {
   saveStartingNetWorth(0);
 });
+
+if (setupBillUnknown) {
+  setupBillUnknown.addEventListener("change", () => {
+    setupBillAmount.disabled = setupBillUnknown.checked;
+
+    if (setupBillUnknown.checked) {
+      setupBillAmount.value = "";
+    }
+  });
+}
+
+if (billSetupForm) {
+  billSetupForm.addEventListener("submit", event => {
+    event.preventDefault();
+    addBillFromSetup();
+  });
+}
+
+if (finishSetupButton) {
+  finishSetupButton.addEventListener("click", completeOnboarding);
+}
+
+if (skipBillsButton) {
+  skipBillsButton.addEventListener("click", completeOnboarding);
+}
 
 prevMonthBtn.addEventListener("click", () => {
   const previousMonth = new Date(visibleDate.getFullYear(), visibleDate.getMonth() - 1, 1);
