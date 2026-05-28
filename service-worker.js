@@ -1,4 +1,6 @@
-const CACHE_NAME = "cheq-cache-v13";
+const CACHE_NAME = "cheq-cache-v16";
+
+const FILES_TO_CACHE = [
   "/Cheq/",
   "/Cheq/index.html",
   "/Cheq/style.css",
@@ -8,7 +10,6 @@ const CACHE_NAME = "cheq-cache-v13";
   "/Cheq/icon-192.png",
   "/Cheq/icon-512.png"
 ];
-
 self.addEventListener("install", event => {
   self.skipWaiting();
 
