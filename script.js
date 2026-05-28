@@ -167,6 +167,7 @@ const setupBillList = document.getElementById("setupBillList");
 const billSetupError = document.getElementById("billSetupError");
 const finishSetupButton = document.getElementById("finishSetupButton");
 const skipBillsButton = document.getElementById("skipBillsButton");
+
 const homeBillList = document.getElementById("homeBillList");
 const homeBillForm = document.getElementById("homeBillForm");
 const homeBillName = document.getElementById("homeBillName");
@@ -185,6 +186,14 @@ let transactions = loadTransactions();
 let profile = loadProfile();
 let adjustments = loadAdjustments();
 let bills = loadBills();
+
+window.addEventListener("error", event => {
+  console.error("Cheq startup error:", event.error || event.message);
+
+  if (appSplash) {
+    appSplash.classList.add("hidden");
+  }
+});
 
 function getInitialVisibleDate() {
   const now = new Date();
@@ -307,10 +316,6 @@ function loadBills() {
     }
 
     const parsed = JSON.parse(saved);
-
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
 
     return normalizeBills(parsed);
   } catch (error) {
@@ -617,7 +622,6 @@ function getUpcomingOutflowForVisibleMonth() {
 
 function getSafeToSpendValue() {
   const totals = getMonthTotals();
-
   return totals.income - totals.outflow;
 }
 
@@ -634,7 +638,6 @@ function getSignedTransactionAmount(item) {
 
 function getSignedAdjustmentAmount(item) {
   const amount = Number(item.amount) || 0;
-
   return item.type === "minus" ? -amount : amount;
 }
 
@@ -1139,53 +1142,15 @@ function renderAdjustmentList() {
     });
 }
 
-function renderSetupBills() {
-  if (!setupBillList) {
+function renderBillList(targetList, allowConfirmDelete) {
+  if (!targetList) {
     return;
   }
 
-  setupBillList.innerHTML = "";
+  targetList.innerHTML = "";
 
   if (!bills.length) {
-    setupBillList.innerHTML = `<li class="empty-state"><strong>No bills added yet.</strong>Add bills now or skip this step.</li>`;
-    return;
-  }
-
-  bills
-    .slice()
-    .sort((a, b) => a.dueDay - b.dueDay)
-    .forEach(bill => {
-      const li = document.createElement("li");
-      li.className = "bill-list-item";
-
-      li.innerHTML = `
-        <div>
-          <strong>${escapeHtml(bill.name)}</strong>
-          <small>Due every month on day ${bill.dueDay}</small>
-        </div>
-        <span>${escapeHtml(formatBillAmount(bill))}</span>
-        <button class="delete-button" type="button" aria-label="Remove ${escapeHtml(bill.name)}">x</button>
-      `;
-
-      li.querySelector("button").addEventListener("click", () => {
-        bills = bills.filter(item => item.id !== bill.id);
-        saveBills();
-        renderApp();
-      });
-
-      setupBillList.appendChild(li);
-    });
-}
-function renderHomeBills() {
-  if (!homeBillList || !billCountPill) {
-    return;
-  }
-
-  billCountPill.textContent = `${bills.length} ${bills.length === 1 ? "bill" : "bills"}`;
-  homeBillList.innerHTML = "";
-
-  if (!bills.length) {
-    homeBillList.innerHTML = `
+    targetList.innerHTML = `
       <li class="empty-state">
         <strong>No bills added.</strong>
         Add recurring bills to map monthly obligations.
@@ -1211,10 +1176,12 @@ function renderHomeBills() {
       `;
 
       li.querySelector("button").addEventListener("click", () => {
-        const confirmed = window.confirm(`Remove ${bill.name} from monthly bills?`);
+        if (allowConfirmDelete) {
+          const confirmed = window.confirm(`Remove ${bill.name} from monthly bills?`);
 
-        if (!confirmed) {
-          return;
+          if (!confirmed) {
+            return;
+          }
         }
 
         bills = bills.filter(item => item.id !== bill.id);
@@ -1222,8 +1189,25 @@ function renderHomeBills() {
         renderApp();
       });
 
-      homeBillList.appendChild(li);
+      targetList.appendChild(li);
     });
+}
+
+function renderSetupBills() {
+  if (!setupBillList) {
+    return;
+  }
+
+  renderBillList(setupBillList, false);
+}
+
+function renderHomeBills() {
+  if (!homeBillList || !billCountPill) {
+    return;
+  }
+
+  billCountPill.textContent = `${bills.length} ${bills.length === 1 ? "bill" : "bills"}`;
+  renderBillList(homeBillList, true);
 }
 
 function switchView(viewName) {
@@ -1452,18 +1436,6 @@ function addBillFromHome() {
   }
 }
 
-  saveBills();
-  renderApp();
-
-  setupBillName.value = "";
-  setupBillAmount.value = "";
-  setupBillUnknown.checked = false;
-  setupBillAmount.disabled = false;
-  setupBillDueDay.value = "";
-
-  setupBillName.focus();
-}
-
 function downloadTextFile(filename, content, mimeType) {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
@@ -1680,6 +1652,7 @@ if (setupBillUnknown) {
     }
   });
 }
+
 if (homeBillUnknown) {
   homeBillUnknown.addEventListener("change", () => {
     homeBillAmount.disabled = homeBillUnknown.checked;
@@ -1689,18 +1662,21 @@ if (homeBillUnknown) {
     }
   });
 }
+
 if (billSetupForm) {
   billSetupForm.addEventListener("submit", event => {
     event.preventDefault();
     addBillFromSetup();
   });
 }
+
 if (homeBillForm) {
   homeBillForm.addEventListener("submit", event => {
     event.preventDefault();
     addBillFromHome();
   });
 }
+
 if (finishSetupButton) {
   finishSetupButton.addEventListener("click", completeOnboarding);
 }
