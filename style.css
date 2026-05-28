@@ -1699,6 +1699,14 @@ body {
   content: "";
 }
 
+.brand-logo,
+.app-splash img,
+.onboarding-logo {
+  display: block;
+  object-fit: contain;
+  background: transparent;
+}
+
 .summary-tile.type-income::before,
 .summary-kpi.type-income::before { background: var(--green); }
 .summary-tile.type-expense::before,
