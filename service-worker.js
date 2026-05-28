@@ -1,13 +1,12 @@
-const CACHE_NAME = "cheq-cache-v12";
-
-const FILES_TO_CACHE = [
+const CACHE_NAME = "cheq-cache-v13";
   "/Cheq/",
   "/Cheq/index.html",
   "/Cheq/style.css",
   "/Cheq/script.js",
   "/Cheq/manifest.json",
-  "/Cheq/icons/icon-192.png",
-  "/Cheq/icons/icon-512.png"
+  "/Cheq/logo.svg",
+  "/Cheq/icon-192.png",
+  "/Cheq/icon-512.png"
 ];
 
 self.addEventListener("install", event => {
