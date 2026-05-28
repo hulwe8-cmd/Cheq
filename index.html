@@ -116,7 +116,45 @@
           </div>
           <button id="openSelectedDayBtn" class="mini-action-button" type="button">Open</button>
         </section>
+        <section class="bills-panel" aria-label="Monthly bills">
+  <div class="section-title-row">
+    <div>
+      <p class="overline">Bills</p>
+      <h3>Monthly Bills</h3>
+    </div>
+    <span id="billCountPill" class="count-pill">0 bills</span>
+  </div>
 
+  <ul id="homeBillList" class="bill-list"></ul>
+
+  <form id="homeBillForm" class="transaction-form">
+    <label class="field-label">
+      <span>Bill name</span>
+      <input id="homeBillName" type="text" placeholder="Rent, phone, insurance..." />
+    </label>
+
+    <label class="field-label">
+      <span>Amount</span>
+      <input id="homeBillAmount" type="number" step="0.01" min="0" inputmode="decimal" placeholder="1200.00" />
+    </label>
+
+    <label class="checkbox-row">
+      <input id="homeBillUnknown" type="checkbox" />
+      <span>Amount unknown / N/A</span>
+    </label>
+
+    <label class="field-label">
+      <span>Due day each month</span>
+      <input id="homeBillDueDay" type="number" min="1" max="31" inputmode="numeric" placeholder="1" />
+    </label>
+
+    <button class="save-button secondary" type="submit">
+      Add Bill
+    </button>
+
+    <p id="homeBillError" class="form-error" aria-live="polite"></p>
+  </form>
+</section>
         <section class="summary-panel" aria-label="Month summary">
           <div class="section-title-row">
             <div>
