@@ -3,24 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b0d10" />
+  <meta name="theme-color" content="#0f1115" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Cheq" />
+
   <title>Cheq</title>
-  <link rel="manifest" href="manifest.json" />
+
+  <link rel="manifest" href="/Cheq/manifest.json" />
   <link rel="icon" href="/Cheq/icon-192.png" />
   <link rel="apple-touch-icon" href="/Cheq/icon-192.png" />
-  <link rel="manifest" href="/Cheq/manifest.json">
-  <meta name="theme-color" content="#0f1115">
   <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
   <div id="appSplash" class="app-splash" aria-label="Cheq loading screen">
     <img src="/Cheq/logo.svg" alt="Cheq logo" />
     <strong>Cheq</strong>
     <span>Loading your ledger...</span>
   </div>
+
   <main class="desktop-stage">
     <section class="phone-frame" aria-label="Cheq local finance app">
       <header class="app-header">
@@ -48,23 +50,33 @@
           <strong id="safeToSpendAmount">$0.00</strong>
           <span id="safeToSpendNote">Based on entered May activity</span>
         </article>
+
         <div class="hud-grid">
           <article class="hud-card hud-net-worth">
             <span>Net Worth</span>
             <strong id="headerNetWorth">$0.00</strong>
             <small id="headerNetWorthChange">+$0.00 from start</small>
           </article>
+
           <article class="hud-card">
             <span>Month Net</span>
             <strong id="hudMonthlyNet">$0.00</strong>
           </article>
+
           <article class="hud-card">
             <span>Upcoming Outflow</span>
             <strong id="hudUpcomingOutflow">$0.00</strong>
           </article>
+
           <article class="hud-card">
             <span>Credit Used</span>
             <strong id="hudCreditUsage">$0.00</strong>
+          </article>
+
+          <article class="hud-card hud-upcoming-bills">
+            <span>Upcoming Bills</span>
+            <strong id="upcomingBillsTotal">$0.00</strong>
+            <small id="upcomingBillsNext">No bills added</small>
           </article>
         </div>
       </section>
@@ -394,42 +406,94 @@
   <aside id="onboardingOverlay" class="onboarding-overlay" aria-hidden="true">
     <section class="onboarding-card" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
       <img src="/Cheq/logo.svg" alt="Cheq logo" class="onboarding-logo" />
-      <p class="overline">First Setup</p>
-      <h2 id="onboardingTitle">Set your starting net worth</h2>
-      <p class="onboarding-copy">Cheq stays local. Enter your current net worth one time, then Cheq will add income, subtract spending, and apply manual adjustments from May 2026 forward.</p>
 
-      <form id="netWorthForm" class="net-worth-form">
-        <label class="field-label">
-          <span>Current net worth</span>
-          <input id="startingNetWorth" type="number" step="0.01" inputmode="decimal" placeholder="0.00" required />
-        </label>
-        <p id="netWorthError" class="form-error" aria-live="polite"></p>
-        <button class="save-button" type="submit">Start Cheq</button>
-        <button id="startAtZeroBtn" class="text-button" type="button">Start at $0.00</button>
-      </form>
+      <div id="netWorthSetupStep" class="onboarding-step">
+        <p class="overline">Step 1 of 2</p>
+        <h2 id="onboardingTitle">Set your starting net worth</h2>
+        <p class="onboarding-copy">
+          Cheq stays local. Enter your current net worth one time, then Cheq will add income,
+          subtract spending, and apply manual adjustments from May 2026 forward.
+        </p>
+
+        <form id="netWorthForm" class="net-worth-form">
+          <label class="field-label">
+            <span>Current net worth</span>
+            <input id="startingNetWorth" type="number" step="0.01" inputmode="decimal" placeholder="0.00" required />
+          </label>
+          <p id="netWorthError" class="form-error" aria-live="polite"></p>
+          <button class="save-button" type="submit">Continue to Bills</button>
+          <button id="startAtZeroBtn" class="text-button" type="button">Start at $0.00</button>
+        </form>
+      </div>
+
+      <div id="billSetupStep" class="onboarding-step hidden">
+        <p class="overline">Step 2 of 2</p>
+        <h2>Add your monthly bills</h2>
+        <p class="onboarding-copy">
+          Add recurring bills so Cheq can show upcoming obligations on your calendar.
+          If the amount changes month to month, mark it as N/A.
+        </p>
+
+        <form id="billSetupForm" class="transaction-form">
+          <label class="field-label">
+            <span>Bill name</span>
+            <input id="setupBillName" type="text" placeholder="Rent, phone, insurance..." />
+          </label>
+
+          <label class="field-label">
+            <span>Amount</span>
+            <input id="setupBillAmount" type="number" step="0.01" min="0" inputmode="decimal" placeholder="1200.00" />
+          </label>
+
+          <label class="checkbox-row">
+            <input id="setupBillUnknown" type="checkbox" />
+            <span>Amount unknown / N/A</span>
+          </label>
+
+          <label class="field-label">
+            <span>Due day each month</span>
+            <input id="setupBillDueDay" type="number" min="1" max="31" inputmode="numeric" placeholder="1" />
+          </label>
+
+          <button id="addSetupBillButton" class="save-button secondary" type="submit">
+            Add Bill
+          </button>
+
+          <p id="billSetupError" class="form-error" aria-live="polite"></p>
+        </form>
+
+        <ul id="setupBillList" class="bill-list"></ul>
+
+        <button id="finishSetupButton" class="save-button" type="button">
+          Finish Setup
+        </button>
+
+        <button id="skipBillsButton" class="text-button" type="button">
+          Skip bills for now
+        </button>
+      </div>
     </section>
   </aside>
 
   <script src="script.js"></script>
-  
+
   <script>
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", function () {
-      navigator.serviceWorker
-        .register("/Cheq/service-worker.js", {
-          scope: "/Cheq/"
-        })
-        .then(function (registration) {
-          console.log("Cheq service worker registered:", registration.scope);
-        })
-        .catch(function (error) {
-          console.error("Cheq service worker registration failed:", error);
-        });
-    });
-  } else {
-    console.warn("Service workers are not supported in this browser.");
-  }
-</script>
-  
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker
+          .register("/Cheq/service-worker.js", {
+            scope: "/Cheq/"
+          })
+          .then(function (registration) {
+            console.log("Cheq service worker registered:", registration.scope);
+          })
+          .catch(function (error) {
+            console.error("Cheq service worker registration failed:", error);
+          });
+      });
+    } else {
+      console.warn("Service workers are not supported in this browser.");
+    }
+  </script>
 </body>
 </html>
