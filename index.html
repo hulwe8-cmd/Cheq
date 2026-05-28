@@ -411,15 +411,25 @@
   </aside>
 
   <script src="script.js"></script>
-<script src="script.js"></script>
-
-<script>
+  
+  <script>
   if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("/Cheq/service-worker.js", {
-        scope: "/Cheq/"
-      });
-    }
-  </script>
+    window.addEventListener("load", function () {
+      navigator.serviceWorker
+        .register("/Cheq/service-worker.js", {
+          scope: "/Cheq/"
+        })
+        .then(function (registration) {
+          console.log("Cheq service worker registered:", registration.scope);
+        })
+        .catch(function (error) {
+          console.error("Cheq service worker registration failed:", error);
+        });
+    });
+  } else {
+    console.warn("Service workers are not supported in this browser.");
+  }
+</script>
+  
 </body>
 </html>
