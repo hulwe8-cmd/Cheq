@@ -411,12 +411,14 @@
   </aside>
 
   <script src="script.js"></script>
-  <script>
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("/Cheq/service-worker.js", {
-  scope: "/Cheq/"
-});
+<script src="script.js"></script>
+
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/Cheq/service-worker.js", {
+        scope: "/Cheq/"
+      });
     }
   </script>
 </body>
