@@ -1723,3 +1723,137 @@ body {
 .summary-kpi.type-net.positive::before { background: var(--green); opacity: 1; }
 .summary-tile.type-net.negative::before,
 .summary-kpi.type-net.negative::before { background: var(--red); opacity: 1; }
+
+/* Cheq v6: Local recurring bills */
+
+.hidden {
+  display: none !important;
+}
+
+.onboarding-step {
+  display: block;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 850;
+}
+
+.checkbox-row input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--green);
+}
+
+.checkbox-row span {
+  line-height: 1.25;
+}
+
+.bill-list {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bill-list-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.bill-list-item strong {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.95rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bill-list-item small {
+  display: block;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bill-list-item span {
+  color: var(--text);
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.type-bill,
+.amount.type-bill,
+.type-bill .money,
+.type-bill.day-entry,
+.type-bill .transaction-amount {
+  color: var(--muted);
+}
+
+.day-entry.type-bill {
+  color: var(--muted);
+  border-left: 2px solid var(--line-strong);
+  padding-left: 3px;
+}
+
+.transaction-item.type-bill {
+  --badge-rgb: 161, 166, 175;
+}
+
+.transaction-item.type-bill .type-badge {
+  background: rgba(161, 166, 175, 0.12);
+  color: var(--muted);
+  border: 1px solid rgba(161, 166, 175, 0.32);
+  box-shadow: none;
+}
+
+.transaction-item.type-bill .transaction-amount {
+  color: var(--muted);
+}
+
+.hud-upcoming-bills {
+  border-left: 4px solid var(--line-strong);
+}
+
+.hud-upcoming-bills strong {
+  color: var(--text);
+}
+
+.hud-upcoming-bills small {
+  color: var(--muted);
+}
+
+#billSetupStep .save-button {
+  margin-top: 2px;
+}
+
+#setupBillAmount:disabled {
+  opacity: 0.5;
+}
+
+@media (max-width: 374px) {
+  .bill-list-item {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .bill-list-item .delete-button {
+    grid-column: 2;
+  }
+}
