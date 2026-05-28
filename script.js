@@ -125,7 +125,7 @@ const summaryOutflowKpi = document.getElementById("summaryOutflowKpi");
 const summaryNetKpi = document.getElementById("summaryNetKpi");
 const summaryCreditKpi = document.getElementById("summaryCreditKpi");
 
-const exportBackupBtn = document.getElementById("exportBackupBtn");
+const Btn = document.getElementById("Btn");
 const exportCsvBtn = document.getElementById("exportCsvBtn");
 const importBackupInput = document.getElementById("importBackupInput");
 
@@ -1495,6 +1495,7 @@ function exportCsv() {
 
   downloadTextFile(`cheq-transactions-${toDateKey(new Date())}.csv`, csv, "text/csv");
 }
+
 function importBackupFile(file) {
   if (!file) {
     return;
