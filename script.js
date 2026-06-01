@@ -240,6 +240,7 @@ function normalizeTransactions(data) {
         type: TYPES[item.type] ? item.type : "expense",
         name: String(item.name || "Transaction"),
         amount: Number(item.amount) || 0,
+        billId: item.billId ? String(item.billId) : null,
         createdAt: item.createdAt || new Date().toISOString()
       }))
       .filter(item => item.amount > 0);
@@ -952,20 +953,33 @@ function renderDayTransactionList() {
     return;
   }
 
-  selectedBills.forEach(bill => {
-    const li = document.createElement("li");
-    li.className = "transaction-item type-bill";
-    li.innerHTML = `
-      <span class="type-badge" aria-hidden="true">B</span>
-      <span class="transaction-copy">
-        <strong>${escapeHtml(bill.name)}</strong>
-        <small>Planned monthly bill - due day ${bill.dueDay}</small>
-      </span>
-      <span class="transaction-amount type-bill">${escapeHtml(formatBillAmount(bill))}</span>
-    `;
+ selectedBills.forEach(bill => {
+  const paid = isBillPaidOnDate(bill, selectedDateKey);
+  const li = document.createElement("li");
+  li.className = `transaction-item type-bill ${paid ? "bill-paid" : ""}`;
 
-    dayTransactionList.appendChild(li);
-  });
+  li.innerHTML = `
+    <span class="type-badge" aria-hidden="true">${paid ? "✓" : "B"}</span>
+    <span class="transaction-copy">
+      <strong>${escapeHtml(bill.name)}</strong>
+      <small>${paid ? "Paid" : `Planned monthly bill - due day ${bill.dueDay}`}</small>
+    </span>
+    <span class="transaction-amount type-bill">${escapeHtml(formatBillAmount(bill))}</span>
+    <button class="bill-paid-button" type="button" ${paid ? "disabled" : ""}>
+      ${paid ? "Paid" : "Mark Paid"}
+    </button>
+  `;
+
+  const paidButton = li.querySelector(".bill-paid-button");
+
+  if (paidButton && !paid) {
+    paidButton.addEventListener("click", () => {
+      markBillPaid(bill, selectedDateKey);
+    });
+  }
+
+  dayTransactionList.appendChild(li);
+});
 
   items.forEach(item => {
     dayTransactionList.appendChild(createTransactionListItem(item, selectedDateKey, true, false));
@@ -1250,7 +1264,57 @@ function closeDayDrawer() {
   dayDrawer.setAttribute("aria-hidden", "true");
   transactionForm.reset();
 }
+function isBillPaidOnDate(bill, dateKey) {
+  return getTransactionsForDate(dateKey).some(item => {
+    return item.billId === bill.id || (
+      item.type === "expense" &&
+      item.name === `Paid: ${bill.name}`
+    );
+  });
+}
 
+function markBillPaid(bill, dateKey = selectedDateKey) {
+  if (dateKey < START_DATE_KEY) {
+    return;
+  }
+
+  if (isBillPaidOnDate(bill, dateKey)) {
+    window.alert(`${bill.name} is already marked paid for this date.`);
+    return;
+  }
+
+  let amount = bill.amountKnown ? Number(bill.amount) : null;
+
+  if (!bill.amountKnown) {
+    const enteredAmount = window.prompt(`Enter paid amount for ${bill.name}:`);
+
+    if (enteredAmount === null) {
+      return;
+    }
+
+    amount = Number(enteredAmount);
+  }
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    window.alert("Enter a valid paid amount.");
+    return;
+  }
+
+  const confirmed = window.confirm(`Mark ${bill.name} paid for ${formatMoney(amount)}?`);
+
+  if (!confirmed) {
+    return;
+  }
+
+  addTransaction(dateKey, {
+    id: createId(),
+    type: "expense",
+    name: `Paid: ${bill.name}`,
+    amount,
+    billId: bill.id,
+    createdAt: new Date().toISOString()
+  });
+}
 function addTransaction(dateKey, item) {
   const dayItems = getTransactionsForDate(dateKey);
 
